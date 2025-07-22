@@ -140,8 +140,14 @@ df['Cleaned'] = df['Sentences'].progress_apply(clean_and_lemmatize)
  # Post-processing
 df = df[df['Cleaned'].str.strip().astype(bool)]  # Remove empty strings
 df = df.drop_duplicates(subset=['Cleaned'])  # Remove duplicates
-    
-    # Save results
+
+# Filter and select only Target and Cleaned columns
+df = df[['Target', 'Cleaned']].copy()
+df = df[df['Cleaned'].str.strip().astype(bool)]
+df = df.drop_duplicates(subset=['Cleaned'])
+
+
+# Save results
 df.to_csv(output_path, index=False, encoding='utf-8')
 print(f"\nSaved cleaned data to {output_path}")
 print(f"Final dataset size: {len(df)} rows")
