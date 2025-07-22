@@ -4,7 +4,7 @@ import os
 #changed path so that it is same for all
 file_path = os.path.join('dataset.csv')  # if dataset is in the same folder
 
-
+#data loading: 
 #Main Logic
 def load_dataset(file_path, preview_rows=5):
 #    Loads data from a CSV file and returns a copy for safe processing.
@@ -32,14 +32,19 @@ def load_dataset(file_path, preview_rows=5):
 df = load_dataset(file_path, preview_rows=5)
 
 # Rename the columns as specified
-df.columns = ['Target', 'Predicted Label', 'Remarks', 'Sentences']
+if list(df.columns)[:4] != ['Target', 'Predicted Label', 'Remarks', 'Sentences']:
+    df.columns = ['Target', 'Predicted Label', 'Remarks', 'Sentences']
+
+#data cleaning: 
+#stopwords
+stopwords = ['र', 'वा', 'मा', 'तथा', 'को', 'कि', 'ले', 'द्वारा']
 
 # Define a function to clean text
 def clean_text(text):
     # Remove URLs
     text = re.sub(r'http\S+|www\S+', '', str(text))
     # Remove special characters, numbers, punctuation, and Nepali full stop (keeping only Devanagari characters and spaces)
-    text = re.sub(r'[^ऀ-ॿ\s]', '', text)
+    text = re.sub(r'[^\u0900-\u097F\s]', '', text)
     # Remove Nepali numbers (०-९)
     text = re.sub(r'[०१२३४५६७८९]', '', text)
     # Strip Nepali full stop
@@ -47,7 +52,9 @@ def clean_text(text):
     # Remove extra spaces
     text = re.sub(r'\s+', ' ', text).strip()
     #remove repeate characters
-    text = re.sub(r'(.)\1{2,}', r'\1', text)  
+    text = re.sub(r'(.)\1{2,}', r'\1', text)
+    #removing stopwords
+    text = ' '.join([word for word in text.split() if word not in stopwords])  
     return text
 
 
@@ -59,3 +66,4 @@ df = df.drop_duplicates(subset=['Sentences']).reset_index(drop=True)
 
 #save the new dataset
 df.to_csv('cleaned_dataset.csv', index=False)
+
