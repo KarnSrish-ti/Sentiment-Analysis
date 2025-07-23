@@ -28,3 +28,11 @@ X_test_tfidf = tfidf.transform(X_test)
 # Print out the shapes to verify success
 print("Training vectorized shape:", X_train_tfidf.shape)
 print("Testing vectorized shape:", X_test_tfidf.shape)
+
+# Class Distribution
+#why it matters? if classes are imbalanced, model might learn to predict only the majority class.
+print("\nLabel Distribution:") 
+print(df['Target'].value_counts()) 
+
+
+
