@@ -1,0 +1,10 @@
+Classification Report for TF-IDF + SVM Model
+==================================================
+              precision    recall  f1-score   support
+
+           0       0.80      0.72      0.76       273
+           1       0.77      0.83      0.80       303
+
+    accuracy                           0.78       576
+   macro avg       0.78      0.78      0.78       576
+weighted avg       0.78      0.78      0.78       576
