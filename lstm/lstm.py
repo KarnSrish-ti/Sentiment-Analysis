@@ -1,106 +1,119 @@
-# Import all required libraries
-import pandas as pd
 import numpy as np
-import os
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
-
-# Import TensorFlow and Keras components
+import pandas as pd
+import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, SpatialDropout1D
+from sklearn.model_selection import train_test_split
 
-# Import plotting libraries
-import matplotlib.pyplot as plt
-import seaborn as sns
+# Main Execution
+if __name__ == "__main__":
+    # --- 1. Configuration and Data Loading ---
+    FILE_PATH = '../cleaned_dataset_lemmatized.csv'
+    VOCAB_SIZE = 15000     # Increase vocabulary size
+    MAX_LENGTH = 120       # Increase sequence length slightly if sentences are long
+    EMBEDDING_DIM = 128    # Increase the embedding dimension
+    TEST_SPLIT = 0.2    # 20% of data will be used for testing
 
-# --- DATA LOADING ---
-df = pd.read_csv("cleaned_dataset_lemmatized.csv")
-df['Cleaned'] = df['Cleaned'].fillna('')
+    # Load the dataset
+    try:
+        # Assuming the CSV might not have a header, we name the columns
+        df = pd.read_csv(FILE_PATH)
+        # Ensure the column names are correct as per your description
+        df.columns = ['target', 'cleaned']
+        print("Dataset loaded successfully.")
+    except FileNotFoundError:
+        print(f"Error: The file '{FILE_PATH}' was not found.")
+        print("Please make sure the file exists and the path is correct.")
+        exit()
+    except Exception as e:
+        print(f"An error occurred while loading the data: {e}")
+        exit()
 
-# Extract input features and target labels
-X = df['Cleaned']          
-y = df['Target'] 
+    # Drop any rows with missing values to be safe
+    df.dropna(subset=['cleaned', 'target'], inplace=True)
 
-# Split data before any processing
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
+    # --- 2. Data Preprocessing ---
+    # Separate features (text) and labels (target)
+    sentences = df['cleaned'].astype(str).values
+    labels = df['target'].values
 
-# --- LSTM DATA PREPARATION ---
-# 1. Tokenize the text (convert words to unique integer IDs)
-vocab_size = 10000 # Keep the top 10,000 most frequent words
-tokenizer = Tokenizer(num_words=vocab_size, oov_token="<OOV>") # <OOV> handles words not in vocabulary
-tokenizer.fit_on_texts(X_train)
+    # Tokenize the text: convert words to integers
+    tokenizer = Tokenizer(num_words=VOCAB_SIZE, oov_token="<OOV>")
+    tokenizer.fit_on_texts(sentences)
+    word_index = tokenizer.word_index
+    sequences = tokenizer.texts_to_sequences(sentences)
 
-X_train_seq = tokenizer.texts_to_sequences(X_train)
-X_test_seq = tokenizer.texts_to_sequences(X_test)
+    # Pad the sequences so they all have the same length
+    padded_sequences = pad_sequences(sequences, maxlen=MAX_LENGTH, padding='post', truncating='post')
 
-# 2. Pad sequences to ensure every sequence has the same length
-max_length = 200 # Max number of words in a sequence
-X_train_pad = pad_sequences(X_train_seq, maxlen=max_length, padding='post', truncating='post')
-X_test_pad = pad_sequences(X_test_seq, maxlen=max_length, padding='post', truncating='post')
+    # --- 3. Split Data into Training and Testing Sets ---
+    X_train, X_test, y_train, y_test = train_test_split(
+        padded_sequences,
+        labels,
+        test_size=TEST_SPLIT,
+        random_state=42 # for reproducibility
+    )
 
-# --- BUILD THE LSTM MODEL ---
-print("\n--- Building the LSTM Model ---")
-embedding_dim = 128
-model = Sequential([
-    Embedding(input_dim=vocab_size, output_dim=embedding_dim, input_length=max_length),
-    SpatialDropout1D(0.3), # Dropout layer to prevent overfitting
-    LSTM(64, dropout=0.3, recurrent_dropout=0.3),
-    Dense(1, activation='sigmoid') # Sigmoid activation for binary (0 or 1) output
-])
+    print(f"\nTraining data shape: {X_train.shape}")
+    print(f"Testing data shape: {X_test.shape}")
 
-# Compile the model
-model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-print(model.summary())
+    model = Sequential()
+    model.add(Embedding(input_dim=VOCAB_SIZE, output_dim=EMBEDDING_DIM, input_length=MAX_LENGTH))
+    model.add(SpatialDropout1D(0.3)) # Slightly increase dropout
+# Increase LSTM units and make it return sequences for stacking
+    model.add(LSTM(units=128, dropout=0.3, recurrent_dropout=0.3, return_sequences=True))
+# Add a second LSTM layer
+    model.add(LSTM(units=64, dropout=0.3, recurrent_dropout=0.3))
+# Add a dense layer before the output
+    model.add(Dense(units=32, activation='relu'))
+    model.add(Dense(units=1, activation='sigmoid'))
 
-# --- TRAIN THE LSTM MODEL ---
-# Note: This step might take a few minutes
-print("\n--- Training the LSTM Model ---")
-num_epochs = 5
-batch_size = 32
+    # Compile the model for a binary classification task
+    model.compile(
+        loss='binary_crossentropy',
+        optimizer='adam',
+        metrics=['accuracy']
+    )
 
-history = model.fit(
-    X_train_pad, y_train,
-    epochs=num_epochs,
-    batch_size=batch_size,
-    validation_data=(X_test_pad, y_test),
-    verbose=2 # Show progress for each epoch
-)
+    model.summary() # Print a summary of the model architecture
 
-# --- EVALUATE AND SAVE RESULTS ---
-print("\n--- Evaluating LSTM Model ---")
-# Make predictions (these will be probabilities)
-y_pred_prob = model.predict(X_test_pad)
-# Convert probabilities to class labels (0 or 1) based on a 0.5 threshold
-y_pred = (y_pred_prob > 0.5).astype("int32")
+    # --- 5. Train the Model ---
+    print("\nStarting model training...")
+    EPOCHS = 10
+    BATCH_SIZE = 64
+    history = model.fit(
+        X_train,
+        y_train,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        validation_data=(X_test, y_test),
+        verbose=2
+    )
+    print("Model training completed.\n")
 
-# 1. GENERATE AND SAVE THE CLASSIFICATION REPORT
-report_str = classification_report(y_test, y_pred, target_names=['Positive (0)', 'Negative (1)'])
-print(report_str)
+    # --- 6. Evaluate the Model ---
+    loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
+    print("--- Model Evaluation ---")
+    print(f"Test Accuracy: {accuracy*100:.2f}%")
+    print(f"Test Loss: {loss:.4f}\n")
 
-report_filename = 'lstm_classification_report.txt'
-with open(report_filename, 'w', encoding='utf-8') as f:
-    f.write("Classification Report for LSTM Model\n")
-    f.write("="*50 + "\n")
-    f.write(report_str)
-print(f"Classification report saved to: {report_filename}")
+    # --- 7. Prediction Example ---
+    # 0 = positive, 1 = negative
+    sample_text_positive = "उपस्थित विद्वान कस कस गुठी"
+    sample_text_negative = "गुठी विधेक ल्याएर ठमेल मा राज गुठि को जग्गा मा बने को छाया सेन्टर जस्ता लाई जोगाउन को लागि ल्याउदैछ विधेक ।"
 
-# 2. GENERATE AND SAVE THE CONFUSION MATRIX PLOT
-cm = confusion_matrix(y_test, y_pred)
-class_names = ['Positive', 'Negative']
+    def predict_sentiment(text):
+        # Preprocess the new text just like the training data
+        sequence = tokenizer.texts_to_sequences([text])
+        padded_sequence = pad_sequences(sequence, maxlen=MAX_LENGTH, padding='post', truncating='post')
+        # Make a prediction
+        prediction = model.predict(padded_sequence)[0][0]
+        sentiment = "Negative" if prediction > 0.5 else "Positive"
+        print(f"Text: '{text}'")
+        print(f"Prediction Score: {prediction:.4f}")
+        print(f"Predicted Sentiment: {sentiment} (0=Positive, 1=Negative)\n")
 
-plt.figure(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Greens',
-            xticklabels=['Predicted ' + name for name in class_names],
-            yticklabels=['Actual ' + name for name in class_names])
-
-plt.xlabel('Predicted Label')
-plt.ylabel('Actual Label')
-plt.title('Confusion Matrix for LSTM Model')
-
-matrix_filename = 'lstm_confusion_matrix.png'
-plt.savefig(matrix_filename)
-print(f"Confusion matrix image saved to: {matrix_filename}")
+    predict_sentiment(sample_text_positive)
+    predict_sentiment(sample_text_negative)
