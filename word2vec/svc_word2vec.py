@@ -1,14 +1,16 @@
 # Import required libraries
 import pandas as pd
 import numpy as np
+import ast
 from gensim.models import Word2Vec
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 import joblib
 import datetime
 import os
 import logging
+import matplotlib.pyplot as plt
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -115,7 +117,18 @@ def train_and_evaluate(X, y, output_dir):
             f.write(str(clf.get_params()))
         logger.info("Classification report saved to: %s", report_path)
 
-        
+        # Generate confusion matrix
+        cm = confusion_matrix(y_test, y_pred)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
+
+        # Plot and save confusion matrix
+        plt.figure(figsize=(8, 6))
+        disp.plot(cmap='Blues', values_format='d')
+        plt.title("Confusion Matrix")
+        cm_path = os.path.join(output_dir, "confusion_matrix.png")
+        plt.savefig(cm_path)
+        plt.close()
+        logger.info("Confusion matrix saved to: %s", cm_path)
         
         # Save SVM model
         svm_path = os.path.join(output_dir, "svm_classifier.joblib")
