@@ -104,7 +104,7 @@ def clean_and_lemmatize(text):
 
         #check against stopwords
         if lemma not in stopwords and len(lemma) > 1:
-            cleaned_words.append(word)
+            cleaned_words.append(lemma)
     
     return ' '.join(cleaned_words)
 
@@ -134,12 +134,13 @@ if __name__ == "__main__":
 # Clean and lemmatize with progress bar
 print("\nCleaning and lemmatizing text...")
 tqdm.pandas()  # Enable progress_apply
-df = df[df['Sentences'].notna()]  # Remove nulls
+print("Original rows:", len(df))
 df['Cleaned'] = df['Sentences'].progress_apply(clean_and_lemmatize)
-
- # Post-processing
-df = df[df['Cleaned'].str.strip().astype(bool)]  # Remove empty strings
-df = df.drop_duplicates(subset=['Cleaned'])  # Remove duplicates
+print("After cleaning:", len(df))
+df = df[df['Cleaned'].str.strip().astype(bool)]
+print("After removing empty cleaned:", len(df))
+df = df.drop_duplicates(subset=['Cleaned'])
+print("After dropping duplicates:", len(df))
 
 # Filter and select only Target and Cleaned columns
 df = df[['Target', 'Cleaned']].copy()
