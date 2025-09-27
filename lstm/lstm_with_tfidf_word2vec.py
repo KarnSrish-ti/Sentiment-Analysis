@@ -19,6 +19,8 @@ from sklearn.metrics import classification_report, accuracy_score
 from sklearn.exceptions import NotFittedError
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import RMSprop
+import pickle
+from tensorflow.keras.models import save_model
 
 def load_dataset(path):
     """
@@ -218,6 +220,8 @@ def train_and_evaluate_lstm(texts, labels, w2v_model, idf_scores):
         callbacks=[early_stopping],
         verbose=2
     )
+    return model, tokenizer, max_length
+
 
     # Evaluate the model on the test set
     print("\nEvaluating LSTM model...")
@@ -245,7 +249,16 @@ def main():
         # Compute TF-IDF scores
         idf_scores = compute_tfidf(texts)
         # Train and evaluate the LSTM model
-        train_and_evaluate_lstm(texts, labels, w2v_model, idf_scores)
+        model, tokenizer, max_length = train_and_evaluate_lstm(texts, labels, w2v_model, idf_scores)
+
+        model.save("lstm_model.h5")
+        with open("tokenizer.pkl", "wb") as f:
+            pickle.dump(tokenizer, f   )
+        
+        with open("max_length.pkl", "wb") as f:
+            pickle.dump(max_length, f)
+        print("Model and tokenizer saved successfully.")
+        
     except FileNotFoundError as fnf_error:
         print(fnf_error)
     except ValueError as val_error:

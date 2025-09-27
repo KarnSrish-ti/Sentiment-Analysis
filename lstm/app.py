@@ -10,7 +10,14 @@ def load_lstm():
     model = load_model("lstm_model.h5")
     with open("tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
-    return model, tokenizer
+    with open("max_length.pkl", "rb") as f:
+        maxlen = pickle.load(f)
+
+    print(f"Model loaded with maxlen: {maxlen}")
+    st.success("Model and tokenizer loaded successfully!")
+
+
+    return model, tokenizer, maxlen;
 
 model, tokenizer = load_lstm()
 
